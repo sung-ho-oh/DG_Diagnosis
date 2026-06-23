@@ -1051,7 +1051,7 @@ body {
 // ════════════════════════════════
 const CONFIG = {
   claudeKey: '',  // 사용 안 함 — GAS 스크립트 속성에서 관리
-  scriptUrl: 'https://script.google.com/macros/s/AKfycbzGJqbJ3d70kPaY141i433RJRjXhaJKiUDEiHAXGsYv5AdJoZ05lmCqC0CYFK749lPReA/exec'
+  scriptUrl: 'https://script.google.com/macros/s/AKfycbzTCf-mzWX0Q9VQUnL1jI6bGaC9SROq-B7t0PS2PelQLdtGv4iTH1bz0-ugQk_7JJ8j2Q/exec'
 };
 let prePost = '사전';
 let surveyStartTime = null;
@@ -1474,19 +1474,45 @@ function exportPDF() {
 
 
 function renderFeedback(raw) {
-  function toBR(str) { return str.split('\n').join('<br>'); }
-  const parts = raw.split('★SECTION★');
-  const get = function(i) { return (parts[i] || '').trim(); };
+  function toBR(str) {
+    return str.trim()
+      .split('\n').join('<br>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  }
+
+  // ★SECTION★ 구분자로 분리 (공백 포함 변형도 처리)
+  var normalized = raw.replace(/★\s*SECTION\s*★/g, '★SECTION★');
+  var parts = normalized.split('★SECTION★');
+
+  // 섹션 레이블 제거 (Claude가 "섹션N(...): " 형태를 포함할 경우)
+  function clean(str) {
+    return str.replace(/^섹션\d+[^:：]*[:：]\s*/,'')
+              .replace(/^항목\d+[^:：]*[:：]\s*/,'')
+              .trim();
+  }
+
+  var ids = ['fbType','fbAnalysis','fbMediating','fbImprovement','fbAction'];
+
   if (parts.length >= 5) {
-    document.getElementById('fbType').innerHTML        = toBR(get(0));
-    document.getElementById('fbAnalysis').innerHTML    = toBR(get(1));
-    document.getElementById('fbMediating').innerHTML   = toBR(get(2));
-    document.getElementById('fbImprovement').innerHTML = toBR(get(3));
-    document.getElementById('fbAction').innerHTML      = toBR(get(4));
+    // 정상: 5개 섹션 분리 성공
+    ids.forEach(function(id, i) {
+      document.getElementById(id).innerHTML = toBR(clean(parts[i]));
+    });
+  } else if (parts.length >= 2) {
+    // 일부만 분리된 경우 — 있는 것까지 표시
+    parts.forEach(function(p, i) {
+      if (ids[i]) document.getElementById(ids[i]).innerHTML = toBR(clean(p));
+    });
+    for (var i = parts.length; i < ids.length; i++) {
+      document.getElementById(ids[i]).innerHTML =
+        '<span style="color:var(--mgray);font-style:italic;">분석 중 오류가 발생했습니다. 재시도해주세요.</span>';
+    }
   } else {
+    // 구분자 없음 — 전체를 첫 섹션에 표시
     document.getElementById('fbType').innerHTML = toBR(raw);
     ['fbAnalysis','fbMediating','fbImprovement','fbAction'].forEach(function(id) {
-      document.getElementById(id).textContent = '(분석 데이터 없음)';
+      document.getElementById(id).innerHTML =
+        '<span style="color:var(--mgray);font-style:italic;">분석 중 오류가 발생했습니다. 재시도해주세요.</span>';
     });
   }
 }
