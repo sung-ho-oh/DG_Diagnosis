@@ -1441,37 +1441,37 @@ function exportPDF() {
     return;
   }
 
-  // 1. 차트를 고해상도 PNG로 변환
-  let imgData = null;
-  try {
-    imgData = canvas.toDataURL('image/png', 1.0);
-  } catch(e) {
-    console.warn('Canvas toDataURL 실패:', e);
-  }
-
+  // 1. Base64 PNG 추출
+  const imgData = canvas.toDataURL('image/png', 1.0);
   const chartWrap = canvas.parentElement;
 
-  // 2. canvas를 img 태그로 교체 (인쇄 시 canvas는 빈칸으로 나오므로)
-  const tempImg = document.createElement('img');
-  if (imgData) {
-    tempImg.src = imgData;
-  }
+  // 2. img 태그 생성 및 완전 로드 후 인쇄
+  const tempImg = new Image();
   tempImg.id = 'radarChartImg';
   tempImg.style.cssText = 'width:320px;height:320px;display:block;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
-  chartWrap.innerHTML = '';
-  chartWrap.appendChild(tempImg);
 
-  // 3. PDF 전용 헤더/푸터 표시
-  document.querySelectorAll('.pdf-header, .pdf-footer').forEach(function(el) {
-    el.style.display = 'block';
-  });
+  tempImg.onload = function() {
+    // img 완전 로드 확인 후 canvas 교체
+    chartWrap.innerHTML = '';
+    chartWrap.appendChild(tempImg);
 
-  // 4. 인쇄 다이얼로그 (PDF로 저장 선택)
-  setTimeout(function() {
-    window.print();
-  }, 300);
+    // 헤더/푸터 표시
+    document.querySelectorAll('.pdf-header, .pdf-footer').forEach(function(el) {
+      el.style.display = 'block';
+    });
 
-  // 5. 인쇄 후 복원
+    // 한 프레임 더 대기 후 인쇄
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        window.print();
+      });
+    });
+  };
+
+  // 3. src 설정 → onload 트리거
+  tempImg.src = imgData;
+
+  // 4. 인쇄 후 복원
   const restore = function() {
     chartWrap.innerHTML = '';
     chartWrap.appendChild(canvas);
@@ -1482,7 +1482,7 @@ function exportPDF() {
     window.removeEventListener('afterprint', restore);
   };
   window.addEventListener('afterprint', restore);
-  setTimeout(restore, 5000);
+  setTimeout(restore, 8000);
 }
 
 
