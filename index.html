@@ -533,6 +533,19 @@ body {
   .score-bar-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .pdf-header { display: block !important; }
   .pdf-footer { display: block !important; }
+  /* 차트 이미지 강제 출력 */
+  #radarChartImg {
+    display: block !important;
+    width: 320px !important;
+    height: 320px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .chart-wrap {
+    display: flex !important;
+    justify-content: center !important;
+    padding: 16px !important;
+  }
 }
 .pdf-header, .pdf-footer { display: none; }
 </style>
@@ -1051,7 +1064,7 @@ body {
 // ════════════════════════════════
 const CONFIG = {
   claudeKey: '',  // 사용 안 함 — GAS 스크립트 속성에서 관리
-  scriptUrl: 'https://script.google.com/macros/s/AKfycbxXTNfWQPPi9eUjlwfC0syMU7F1WbOuKhXcX7xGftB5lcQKdAr_vwgGgNbmmk3hAsZNSw/exec'
+  scriptUrl: 'https://script.google.com/macros/s/AKfycbyvtWS6ByjA6lanNDgcwXHMqjO0B22c0rQnMbizxDd4ioVLEiab9CRUeg5rWYsY6YQzAw/exec'
 };
 let prePost = '사전';
 let surveyStartTime = null;
@@ -1423,53 +1436,53 @@ function showResults({name, org, cohort, gender, age, edu, position, dept, caree
 
 function exportPDF() {
   const canvas = document.getElementById('radarChart');
-
-  // canvas가 없거나 차트가 아직 그려지지 않은 경우 방어
   if (!canvas || !radarChartInstance) {
     alert('결과 화면에서 PDF 저장 버튼을 눌러주세요.');
     return;
   }
 
+  // 1. 차트를 고해상도 PNG로 변환
   let imgData = null;
   try {
-    imgData = canvas.toDataURL('image/png');
+    imgData = canvas.toDataURL('image/png', 1.0);
   } catch(e) {
-    console.warn('Canvas export failed, printing without image fix:', e);
+    console.warn('Canvas toDataURL 실패:', e);
   }
 
   const chartWrap = canvas.parentElement;
 
-  // 차트를 img로 교체 (인쇄 시 사라지는 현상 방지)
+  // 2. canvas를 img 태그로 교체 (인쇄 시 canvas는 빈칸으로 나오므로)
+  const tempImg = document.createElement('img');
   if (imgData) {
-    const tempImg = document.createElement('img');
     tempImg.src = imgData;
-    tempImg.id = 'radarChartImg';
-    tempImg.style.cssText = 'max-width:340px;max-height:340px;display:block;margin:0 auto;';
-    chartWrap.innerHTML = '';
-    chartWrap.appendChild(tempImg);
   }
+  tempImg.id = 'radarChartImg';
+  tempImg.style.cssText = 'width:320px;height:320px;display:block;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+  chartWrap.innerHTML = '';
+  chartWrap.appendChild(tempImg);
 
-  // PDF 헤더/푸터 표시
-  document.querySelectorAll('.pdf-header, .pdf-footer').forEach(el => el.style.display = 'block');
+  // 3. PDF 전용 헤더/푸터 표시
+  document.querySelectorAll('.pdf-header, .pdf-footer').forEach(function(el) {
+    el.style.display = 'block';
+  });
 
-  // 인쇄 다이얼로그
-  window.print();
+  // 4. 인쇄 다이얼로그 (PDF로 저장 선택)
+  setTimeout(function() {
+    window.print();
+  }, 300);
 
-  // 복원 (afterprint 이벤트 또는 setTimeout)
-  const restore = () => {
-    if (imgData && chartWrap) {
-      chartWrap.innerHTML = '';
-      chartWrap.appendChild(canvas);
-    }
-    document.querySelectorAll('.pdf-header, .pdf-footer').forEach(el => el.style.display = 'none');
-    if (radarChartInstance) {
-      radarChartInstance.update();
-    }
+  // 5. 인쇄 후 복원
+  const restore = function() {
+    chartWrap.innerHTML = '';
+    chartWrap.appendChild(canvas);
+    document.querySelectorAll('.pdf-header, .pdf-footer').forEach(function(el) {
+      el.style.display = 'none';
+    });
+    if (radarChartInstance) radarChartInstance.update();
     window.removeEventListener('afterprint', restore);
   };
-
   window.addEventListener('afterprint', restore);
-  setTimeout(restore, 3000); // fallback
+  setTimeout(restore, 5000);
 }
 
 
